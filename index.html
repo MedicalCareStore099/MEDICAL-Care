@@ -616,6 +616,9 @@ img{display:block;max-width:100%}
 <div id="orders-list"></div>
 </div>
 <div class="admin-section" id="tab-settings">
+<div id="key-warning" style="background:#fef9c3;border:1.5px solid #fde047;border-radius:10px;padding:10px 13px;margin-bottom:12px;font-size:12px;color:#854d0e;font-weight:700;display:none">
+⚠️ المفتاح غير محفوظ — ادخله واضغط حفظ علشان تقدر تضيف منتجات
+</div>
 <div class="admin-field"><label>🔑 JSONBin Master Key</label>
 <div style="display:flex;gap:8px">
 <input id="s-masterkey" type="password" style="flex:1">
@@ -726,8 +729,10 @@ localStorage.setItem('sehhtak_cache',JSON.stringify(appData));
 }
 
 async function saveData(){
-const key=(appData.settings.masterKey||localStorage.getItem('sehhtak_mk')||PUBLIC_READ_KEY||'').trim();
-if(!key){showMsg('error','ادخل الـ Master Key في الإعدادات أولاً');return false}
+const key=(appData.settings.masterKey||localStorage.getItem('sehhtak_mk')||'').trim();
+if(!key){showMsg('error','ادخل الـ Master Key في الإعدادات أولاً — اذهب للإعدادات وأدخله');return false}
+localStorage.setItem('sehhtak_mk', key);
+appData.settings.masterKey = key;
 const payload=JSON.parse(JSON.stringify(appData));
 delete payload.settings.masterKey;
 try{
@@ -1063,7 +1068,9 @@ function openAdmin(){
 const pass=prompt('كلمة المرور:');
 const realPass=appData.settings.adminPassword||ADMIN_PASS;
 if(pass!==realPass){alert('كلمة مرور غلط!');return}
-$('s-masterkey').value=appData.settings.masterKey||localStorage.getItem('sehhtak_mk')||'';
+const savedKey=localStorage.getItem('sehhtak_mk')||'';
+if(savedKey&&!appData.settings.masterKey)appData.settings.masterKey=savedKey;
+$('s-masterkey').value=appData.settings.masterKey||savedKey||'';
 $('s-wa').value=appData.settings.wa||'';
 $('s-fb').value=appData.settings.fb||'';
 $('s-ig').value=appData.settings.ig||'';
@@ -1072,6 +1079,8 @@ $('s-offer-end').value=appData.settings.offerEndsAt?appData.settings.offerEndsAt
 $('s-admin-pass').value='';
 renderDeptImagesSettings();
 renderAdminProducts();
+const kw=document.getElementById('key-warning');
+if(kw){const hasKey=appData.settings.masterKey||localStorage.getItem('sehhtak_mk')||'';kw.style.display=hasKey?'none':'block';}
 $('admin-overlay').classList.add('show');
 }
 
@@ -1168,6 +1177,8 @@ async function addProduct(){
 const name=$('f-name').value.trim();
 const price=parseInt($('f-price').value);
 if(!name||!price){alert('ادخل الاسم والسعر على الأقل');return}
+const mk=appData.settings.masterKey||localStorage.getItem('sehhtak_mk')||'';
+if(!mk){showMsg('error','❌ ادخل الـ Master Key في الإعدادات أولاً ثم احفظ');switchTab('settings');return}
 const wasEdit=!!editingId;
 const btn=$('btn-add-product');
 btn.disabled=true;btn.innerHTML='جاري الحفظ...<span class="spinner"></span>';
