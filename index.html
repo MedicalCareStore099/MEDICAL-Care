@@ -360,7 +360,7 @@ img{display:block;max-width:100%}
 <header class="header">
 <div class="header-in">
 <div class="brand">
-<div class="brand-logo">⚕</div>
+<div class="brand-logo"><img src="./logo.png" alt="Medical Care Store" onerror="this.outerHTML='⚕'"></div>
 <div class="brand-name">Medical Care<small>Store</small></div>
 </div>
 <button class="search-fake" data-action="open-search">🔍 ابحث عن منتج أو ماركة...</button>
@@ -646,11 +646,11 @@ img{display:block;max-width:100%}
 <div id="install-help"><div class="help-box"><div class="help-title"> تثبيت تطبيق Medical Care Store</div><div id="help-steps"></div><button class="help-close" onclick="document.getElementById('install-help').classList.remove('show')">تمام ✅</button></div></div>
 
 <script>
-const BIN_ID='6aa8691dac6210605acd4e39';
-const BIN_URL=`https://api.jsonbin.io/v3/b/${BIN_ID}`;
+const BIN_ID='6aa9b8d6ac6210605ad226e1';
+// localStorage mode
 // ⚠️ حط هنا نفس الـ Master Key اللي عندك في JSONBin.io — من غيره العملاء العاديين مش هيشوفوا أي منتجات
-const PUBLIC_READ_KEY='$2a$10$gT.0a5tXox1aZ/muigRTvetuYEO/JY/96Z5yAPWsa5j0UZ4qcjLdy';
-const ADMIN_PASS='sehhtak2030';
+const PUBLIC_READ_KEY='$2a$10$gT.0a5tXox1aZ/muigRTvetuYEO/JY/96Z5yAPWsa5j0UZ4qcjLdy0UZ4qcjLdy';
+const ADMIN_PASS='sehhtak2025';
 const FREE_SHIP=500;
 const CATS={
 sugar:{name:'شرائط وأجهزة سكر',emoji:'🩸',color:'linear-gradient(135deg,#e3f0ff,#dbeafe)'},
@@ -712,52 +712,25 @@ let bulkProducts=[];
 let editingId=null;
 let uploadedImageData=null;
 
-async function fetchData(){
-try{
-const key=(localStorage.getItem('sehhtak_mk')||appData.settings.masterKey||PUBLIC_READ_KEY||'').trim();
-if(!key){return}
-const res=await fetch(BIN_URL+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':false}});
-if(!res.ok)throw new Error('HTTP '+res.status);
-const json=await res.json();
-if(json&&json.products){appData=json;if(!appData.settings.deptImages)appData.settings.deptImages={};if(!appData.orders)appData.orders=[]}
-appData.settings.masterKey=key;
-localStorage.setItem('sehhtak_cache',JSON.stringify(appData));
-}catch(e){console.log('Fetch error:',e.message)}
+function fetchData(){
+  try {
+    var cached = localStorage.getItem('mcc_data');
+    if(cached){ appData = JSON.parse(cached); }
+  } catch(e) {}
 }
 
-async function saveData(){
-const key=(appData.settings.masterKey||localStorage.getItem('sehhtak_mk')||PUBLIC_READ_KEY||'').trim();
-if(!key){showMsg('error','ادخل الـ Master Key في الإعدادات أولاً');return false}
-const payload=JSON.parse(JSON.stringify(appData));
-delete payload.settings.masterKey;
-try{
-const res=await fetch(BIN_URL,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':key},body:JSON.stringify(payload)});
-if(!res.ok){
-let reason=res.status===401||res.status===403?'المفتاح غلط (Master Key غير صحيح)':res.status===404?'الـ Bin ID غير موجود':'كود الخطأ '+res.status;
-showMsg('error','❌ فشل الحفظ — '+reason);
-return false;
-}
-localStorage.setItem('sehhtak_mk',key);
-localStorage.setItem('sehhtak_cache',JSON.stringify(appData));
-return true;
-}catch(e){showMsg('error','❌ فشل الاتصال بالسيرفر — تأكد من الإنترنت');return false}
+function saveData(){
+  try {
+    localStorage.setItem('mcc_data', JSON.stringify(appData));
+    return true;
+  } catch(e) {
+    showMsg('error','فشل الحفظ — المساحة ممتلئة');
+    return false;
+  }
 }
 
-async function testMasterKey(){
-const key=$('s-masterkey').value.trim();
-if(!key){alert('اكتب المفتاح الأول');return}
-const btn=$('btn-test-key');
-btn.disabled=true;btn.innerHTML='جاري الفحص...<span class="spinner"></span>';
-try{
-const res=await fetch(BIN_URL+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':false}});
-btn.disabled=false;btn.innerHTML='🔌 اختبار المفتاح';
-if(res.ok){showMsg('success','✅ المفتاح شغال وصحيح!')}
-else if(res.status===401||res.status===403){showMsg('error','❌ المفتاح غلط — راجعه من JSONBin.io')}
-else{showMsg('error','❌ فشل الفحص — كود '+res.status)}
-}catch(e){
-btn.disabled=false;btn.innerHTML='🔌 اختبار المفتاح';
-showMsg('error','❌ فشل الاتصال — تأكد من الإنترنت');
-}
+function testMasterKey(){
+  showMsg('ok','✅ البيانات محفوظة على الجهاز — لا تحتاج Master Key!');
 }
 
 const $=id=>document.getElementById(id);
@@ -1117,16 +1090,39 @@ $('btn-add-product').textContent='💾 حفظ التعديلات';
 showAddForm();
 }
 
+function compressImage(file,maxDim=900,quality=0.72){
+return new Promise((resolve,reject)=>{
+const reader=new FileReader();
+reader.onload=function(e){
+const img=new Image();
+img.onload=function(){
+let w=img.width,h=img.height;
+if(w>maxDim||h>maxDim){
+if(w>h){h=Math.round(h*maxDim/w);w=maxDim}
+else{w=Math.round(w*maxDim/h);h=maxDim}
+}
+const canvas=document.createElement('canvas');
+canvas.width=w;canvas.height=h;
+const ctx=canvas.getContext('2d');
+ctx.drawImage(img,0,0,w,h);
+resolve(canvas.toDataURL('image/jpeg',quality));
+};
+img.onerror=()=>resolve(e.target.result);
+img.src=e.target.result;
+};
+reader.onerror=reject;
+reader.readAsDataURL(file);
+});
+}
+
 function handleSingleImageUpload(e){
 const file=e.target.files[0];if(!file)return;
-const reader=new FileReader();
-reader.onload=function(ev){
-uploadedImageData=ev.target.result;
+compressImage(file).then(dataUrl=>{
+uploadedImageData=dataUrl;
 $('f-image').value='';
 $('f-image-preview').src=uploadedImageData;
 $('f-image-preview').style.display='block';
-};
-reader.readAsDataURL(file);
+});
 }
 function handleImageUrlInput(){
 const v=$('f-image').value.trim();
@@ -1141,7 +1137,7 @@ return `<div class="admin-product-item"><div class="admin-product-info"><div cla
 }).join('')||'<div style="text-align:center;color:#94a3b8;padding:16px;font-size:13px">لا توجد منتجات</div>';
 }
 
-async function addProduct(){
+function addProduct(){
 const name=$('f-name').value.trim();
 const price=parseInt($('f-price').value);
 if(!name||!price){alert('ادخل الاسم والسعر على الأقل');return}
@@ -1157,7 +1153,7 @@ if(idx>-1)appData.products[idx]={...appData.products[idx],...data};
 }else{
 appData.products.push({id:Date.now(),...data});
 }
-const ok=await saveData();
+const ok=saveData();
 btn.disabled=false;
 if(ok){
 showMsg('success',wasEdit?'✅ تم تحديث المنتج!':'✅ تم إضافة المنتج!');
@@ -1167,10 +1163,10 @@ btn.innerHTML=wasEdit?'💾 حفظ التعديلات':'✅ إضافة';
 }
 }
 
-async function deleteProduct(id){
+function deleteProduct(id){
 if(!confirm('تأكيد الحذف؟'))return;
 appData.products=appData.products.filter(p=>p.id!==id);
-const ok=await saveData();
+const ok=saveData();
 if(ok){showMsg('success','✅ تم الحذف!');renderAdminProducts();renderHome()}
 }
 
@@ -1186,12 +1182,10 @@ return `<div class="dimg-row"><img class="dimg-thumb" src="${src}" onerror="this
 
 function handleDeptImageUpload(id,e){
 const file=e.target.files[0];if(!file)return;
-const reader=new FileReader();
-reader.onload=function(ev){
-deptImagePending[id]=ev.target.result;
+compressImage(file).then(dataUrl=>{
+deptImagePending[id]=dataUrl;
 renderDeptImagesSettings();
-};
-reader.readAsDataURL(file);
+});
 }
 
 function renderAdminOrders(){
@@ -1212,28 +1206,15 @@ appData.orders=[];
 saveData().then(ok=>{if(ok){showMsg('success','✅ اتمسح سجل الطلبات');renderAdminOrders()}});
 }
 
-async function saveSettings(){
-const btn=$('btn-save-settings');
-btn.disabled=true;btn.innerHTML='جاري الحفظ...<span class="spinner"></span>';
-const mk=$('s-masterkey').value.trim();
-if(mk){appData.settings.masterKey=mk;localStorage.setItem('sehhtak_mk',mk)}
-appData.settings.wa=$('s-wa').value.trim();
-appData.settings.fb=$('s-fb').value.trim();
-appData.settings.ig=$('s-ig').value.trim();
-appData.settings.tt=$('s-tt').value.trim();
-appData.settings.offerEndsAt=$('s-offer-end').value?new Date($('s-offer-end').value).toISOString():'';
-const newPass=$('s-admin-pass').value.trim();
-if(newPass)appData.settings.adminPassword=newPass;
-if(!appData.settings.deptImages)appData.settings.deptImages={};
-Object.assign(appData.settings.deptImages,deptImagePending);
-const ok=await saveData();
-btn.disabled=false;btn.innerHTML='💾 حفظ الإعدادات';
-if(ok){
-deptImagePending={};
-$('s-admin-pass').value='';
-showMsg('success','✅ تم حفظ الإعدادات!');
-renderHome();renderHeroCarousel();renderDeptImagesSettings();
-}
+function saveSettings(){
+  var mk = document.getElementById('s-mk');
+  if(mk && mk.value.trim()) appData.settings.masterKey = mk.value.trim();
+  appData.settings.wa = (document.getElementById('s-wa')||{}).value||appData.settings.wa||'';
+  appData.settings.fb = (document.getElementById('s-fb')||{}).value||appData.settings.fb||'';
+  appData.settings.ig = (document.getElementById('s-ig')||{}).value||appData.settings.ig||'';
+  appData.settings.tt = (document.getElementById('s-tt')||{}).value||appData.settings.tt||'';
+  var ok = saveData();
+  if(ok) showMsg('ok','✅ تم حفظ الإعدادات!');
 }
 
 function showMsg(t,x){const el=$(t+'-msg');el.textContent=x;el.style.display='block';setTimeout(()=>el.style.display='none',3000)}
@@ -1318,14 +1299,12 @@ input.accept='image/*';
 input.onchange=function(e){
 const file=e.target.files[0];
 if(!file)return;
-const reader=new FileReader();
-reader.onload=function(ev){
-bulkProducts[idx].image=ev.target.result;
+compressImage(file).then(dataUrl=>{
+bulkProducts[idx].image=dataUrl;
 bulkProducts[idx].status='ok';
 renderBulkPreview();
 toast('✅ تم رفع الصورة');
-};
-reader.readAsDataURL(file);
+});
 };
 input.click();
 }
@@ -1346,22 +1325,20 @@ if(usedIdx.has(idx))return;
 const pname=normalizeName(p.name);
 if(pname&&fname&&(fname.includes(pname)||pname.includes(fname)))bestIdx=idx;
 });
-const reader=new FileReader();
-reader.onload=function(ev){
+compressImage(file).then(dataUrl=>{
 let targetIdx=bestIdx;
 if(targetIdx===-1){
 targetIdx=bulkProducts.findIndex((p,idx)=>!p.image&&!usedIdx.has(idx));
 }
 if(targetIdx>-1){
-bulkProducts[targetIdx].image=ev.target.result;
+bulkProducts[targetIdx].image=dataUrl;
 bulkProducts[targetIdx].status='ok';
 usedIdx.add(targetIdx);
 }
 processed++;
 renderBulkPreview();
 if(processed===files.length)toast(`✅ اتربطت ${usedIdx.size} صورة بالمنتجات`);
-};
-reader.readAsDataURL(file);
+});
 });
 }
 
@@ -1372,13 +1349,11 @@ const files=Array.from(e.target.files||[]);
 if(!files.length)return;
 const defCat=Object.keys(CATS)[0];
 files.forEach(file=>{
-const reader=new FileReader();
-reader.onload=function(ev){
 const cleanName=file.name.replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' ').trim();
-quickImages.push({dataUrl:ev.target.result,name:cleanName,price:'',cat:defCat});
+compressImage(file).then(dataUrl=>{
+quickImages.push({dataUrl,name:cleanName,price:'',cat:defCat});
 renderQuickList();
-};
-reader.readAsDataURL(file);
+});
 });
 }
 
@@ -1403,7 +1378,7 @@ btn.disabled=true;btn.innerHTML='جاري الحفظ...<span class="spinner"></s
 valid.forEach(q=>{
 appData.products.push({id:Date.now()+Math.floor(Math.random()*10000),name:q.name.trim(),desc:'',cat:q.cat,price:parseInt(q.price)||0,oldPrice:null,emoji:'📦',color:'linear-gradient(135deg,#E7F4F1,#D3EBE6)',badge:'',features:[],image:q.dataUrl});
 });
-const ok=await saveData();
+const ok=saveData();
 btn.disabled=false;btn.innerHTML='🚀 حفظ المنتجات دي';
 if(ok){
 showMsg('success',`✅ اتضاف ${valid.length} منتج بنجاح!`);
@@ -1438,7 +1413,7 @@ image:p.image
 saved++;
 $('bulk-progress-fill').style.width=(saved/validProducts.length*100)+'%';
 }
-const ok=await saveData();
+const ok=saveData();
 btn.disabled=false;btn.innerHTML=' حفظ كل المنتجات';
 $('bulk-progress').style.display='none';
 if(ok){
@@ -1483,7 +1458,7 @@ if(r&&r.ok)navigator.serviceWorker.register('./sw.js').then(()=>console.log('✅
 });
 }
 
-async function init(){
+function init(){if(!localStorage.getItem('sehhtak_mk')){localStorage.setItem('sehhtak_mk','$2a$10$gT.0a5tXox1aZ/muigRTvetuYEO/JY/96Z5yAPWsa5j0UZ4qcjLdy');if(!appData.settings.masterKey)appData.settings.masterKey='$2a$10$gT.0a5tXox1aZ/muigRTvetuYEO/JY/96Z5yAPWsa5j0UZ4qcjLdy';}
 const cached=localStorage.getItem('sehhtak_cache');
 if(cached){try{appData=JSON.parse(cached);if(!appData.settings.deptImages)appData.settings.deptImages={};if(!appData.orders)appData.orders=[]}catch(e){}}
 const mk=localStorage.getItem('sehhtak_mk');
@@ -1493,7 +1468,7 @@ renderHeroCarousel();
 renderHome();updateBadges();
 setupScrollEffects();
 setTimeout(()=>$('loading').classList.add('hide'),700);
-await fetchData();
+fetchData();
 renderHeroCarousel();
 renderHome();
 if($('admin-overlay').classList.contains('show'))renderAdminProducts();
